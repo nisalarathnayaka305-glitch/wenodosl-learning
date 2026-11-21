@@ -69,12 +69,34 @@
   }
 
   async function login(event) {
-    event.preventDefault(); const btn=$('loginBtn'); setBusy(btn,true,'Signing in…'); $('authMessage').textContent='';
+    event.preventDefault();
+    if (state.loginInProgress) return;
+    state.loginInProgress = true;
+    const btn = $('loginBtn');
+    const message = $('authMessage');
+    setBusy(btn, true, 'Signing in…');
+    message.textContent = 'Connecting to your Learning account…';
     try {
-      const { data, error } = await state.client.auth.signInWithPassword({ email:$('loginEmail').value.trim(), password:$('loginPassword').value });
-      if (error) throw error; await enterApp(data.user);
-    } catch (e) { $('authMessage').textContent=errorMessage(e); }
-    finally { setBusy(btn,false); }
+      if (!state.client) throw new Error('The Supabase client is not ready. Refresh the page and try again.');
+      const { data, error } = await state.client.auth.signInWithPassword({
+        email: $('loginEmail').value.trim(),
+        password: $('loginPassword').value
+      });
+      if (error) throw error;
+      if (!data?.user) throw new Error('Supabase did not return a user. Please try again.');
+      message.textContent = 'Login successful. Loading your profile…';
+      await enterApp(data.user);
+      if (!$('appShell').hidden) message.textContent = '';
+      else if (!message.textContent) message.textContent = 'Login succeeded, but the Learning profile could not be loaded.';
+    } catch (e) {
+      console.error('WenodoSL sign-in failed:', e);
+      message.textContent = errorMessage(e);
+    } finally {
+      state.loginInProgress = false;
+      setBusy(btn, false);
+      if ($('authScreen').hidden) message.textContent = '';
+      else if (!message.textContent) message.textContent = 'Sign-in did not complete. Please try again.';
+    }
   }
   async function forgotPassword() {
     const email=$('loginEmail').value.trim(); if (!email) { $('authMessage').textContent='Enter your email address first.'; return; }
@@ -94,7 +116,7 @@
       $('profileRole').textContent=roleLabel(profile.role); $('avatar').textContent=(profile.full_name||user.email||'W').trim().charAt(0).toUpperCase();
       document.querySelectorAll('.admin-only').forEach(el=>el.hidden=!isAdmin());
       await loadData(); navigate('home');
-    } catch(e) { console.error(e); $('authScreen').hidden=false; $('appShell').hidden=true; $('authMessage').textContent='Could not load your Learning profile. Ask the administrator to check your account.'; }
+    } catch(e) { console.error(e); $('authScreen').hidden=false; $('appShell').hidden=true; $('authMessage').textContent='Signed in, but could not load your Learning profile: '+errorMessage(e); }
   }
   function roleLabel(role) { return ({student:'Learner',lms_admin:'LMS Admin',super_admin:'Super Admin'})[role] || 'Learner'; }
 
