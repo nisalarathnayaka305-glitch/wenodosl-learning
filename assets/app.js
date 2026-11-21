@@ -246,8 +246,13 @@
     return '<article class="learning-material-row"><span class="learning-file-icon">'+(type==='pdf'?'▧':type==='video'?'▶':type==='slides'?'▤':'↗')+'</span><div class="learning-material-copy"><strong>'+esc(l.title)+'</strong><small>'+esc(l.content_type||'Resource')+(l.description?' · '+esc(l.description):'')+'</small></div>'+(done?'<span class="done-pill">Completed</span>':'')+'<button type="button" class="btn btn-quiet" data-open-lesson="'+l.id+'">Open →</button></article>';
   }
   function renderLearningTree(course,groups){
-    const all=course?[...groups.entries()]:state.courses.map(c=>[c.title,new Map([[c.id,state.lessons.filter(l=>l.course_id===c.id)]])]);
-    return '<div class="learning-tree">'+all.map(([main,subs])=>course?'<details open><summary>📂 '+esc(main)+'</summary>'+[...subs.entries()].map(([sub,items])=>'<details class="learning-tree-sub"><summary>📁 '+esc(sub)+' <small>'+items.length+'</small></summary>'+items.map(learningLessonRow).join('')+'</details>').join('')+'</details>':'<details><summary>📁 '+esc(main)+'</summary>'+subs.values().next().value.map(learningLessonRow).join('')+'</details>').join('')+'</div>';
+    const build=(c)=>{
+      const rows=state.lessons.filter(l=>l.course_id===c.id),tree=new Map();
+      rows.forEach(l=>{const m=l.main_folder||'Lessons',sub=l.subfolder||'General';if(!tree.has(m))tree.set(m,new Map());if(!tree.get(m).has(sub))tree.get(m).set(sub,[]);tree.get(m).get(sub).push(l);});
+      return [...tree.entries()].map(([main,subs])=>'<details class="learning-tree-main"><summary>📂 '+esc(main)+' <small>'+[...subs.values()].reduce((n,a)=>n+a.length,0)+'</small></summary>'+[...subs.entries()].map(([sub,items])=>'<div class="learning-tree-sub"><button type="button" class="learning-tree-link" data-learning-nav="sub" data-course-id="'+c.id+'" data-main="'+esc(main)+'" data-sub="'+esc(sub)+'">📁 '+esc(sub)+' <small>'+items.length+'</small></button></div>').join('')+'</details>').join('');
+    };
+    if(course)return '<div class="learning-tree">'+build(course)+'</div>';
+    return '<div class="learning-tree">'+state.courses.map(c=>'<details><summary>📁 '+esc(c.title)+' <small>'+state.lessons.filter(l=>l.course_id===c.id).length+'</small></summary><div class="learning-tree-course"><button type="button" class="learning-tree-link" data-learning-nav="course" data-course-id="'+c.id+'">Open subject →</button>'+build(c)+'</div></details>').join('')+'</div>';
   }
   function openLearningAdd(){
     if(!isAdmin())return;
