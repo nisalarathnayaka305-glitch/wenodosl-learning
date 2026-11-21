@@ -288,7 +288,7 @@
 
   function fillAdminSelects(){if(!isAdmin())return;const opts=state.courses.map(c=>`<option value="${c.id}">${esc(c.title)}</option>`).join('');$('lessonCourseSelect').innerHTML=opts;$('quizCourseSelect').innerHTML=opts;const qopts=state.quizzes.map(q=>`<option value="${q.id}">${esc(q.title)}</option>`).join('');$('questionQuizSelect').innerHTML=qopts;}
   function renderAdminLists(){if(!isAdmin())return;$('adminCourseList').innerHTML=state.courses.map(c=>`<div class="simple-list-row"><span>${esc(c.title)}</span><button class="text-btn" data-delete-course="${c.id}">Archive</button></div>`).join('')||empty('No courses yet.');}
-  async function createCourse(e){e.preventDefault();const f=new FormData(e.currentTarget),payload={title:f.get('title').trim(),description:f.get('description'),level:f.get('level'),deadline:f.get('deadline')||null,is_published:f.get('published')==='on',created_by:state.user.id};try{const {error}=await state.client.from('courses').insert(payload);if(error)throw error;e.currentTarget.reset();await loadData();toast('Course created.','success');}catch(err){toast(errorMessage(err),'error');}}
+  async function createCourse(e){e.preventDefault();const form=e.currentTarget,f=new FormData(form),payload={title:f.get('title').trim(),description:f.get('description'),level:f.get('level'),deadline:f.get('deadline')||null,is_published:f.get('published')==='on',created_by:state.user.id};try{const {error}=await state.client.from('courses').insert(payload);if(error)throw error;form.reset();await loadData();toast('Course created.','success');}catch(err){toast(errorMessage(err),'error');}}
   async function createLesson(e){
     e.preventDefault();
     const form=e.currentTarget;
@@ -316,20 +316,21 @@
       form.reset();await loadData();toast('Learning material added.','success');
     }catch(err){toast(errorMessage(err),'error');}
   }
-  async function createQuiz(e){e.preventDefault();const f=new FormData(e.currentTarget),payload={course_id:f.get('course_id'),title:f.get('title').trim(),time_limit_seconds:Number(f.get('time_limit_seconds'))*60,questions_per_attempt:Number(f.get('questions_per_attempt')),max_attempts:Number(f.get('max_attempts')),is_published:f.get('published')==='on',created_by:state.user.id};try{const {error}=await state.client.from('quizzes').insert(payload);if(error)throw error;e.currentTarget.reset();await loadData();toast('Quiz created. Add questions below.','success');}catch(err){toast(errorMessage(err),'error');}}
+  async function createQuiz(e){e.preventDefault();const form=e.currentTarget,f=new FormData(form),payload={course_id:f.get('course_id'),title:f.get('title').trim(),time_limit_seconds:Number(f.get('time_limit_seconds'))*60,questions_per_attempt:Number(f.get('questions_per_attempt')),max_attempts:Number(f.get('max_attempts')),is_published:f.get('published')==='on',created_by:state.user.id};try{const {error}=await state.client.from('quizzes').insert(payload);if(error)throw error;form.reset();await loadData();toast('Quiz created. Add questions below.','success');}catch(err){toast(errorMessage(err),'error');}}
   async function createQuestion(e){
     e.preventDefault();
-    const f=new FormData(e.currentTarget),kind=f.get('question_type');
+    const form=e.currentTarget;
+    const f=new FormData(form),kind=f.get('question_type');
     const opts=['option_a','option_b','option_c','option_d'].map(k=>String(f.get(k)||'').trim());
     const correct=String(f.get('correct_option')||'A');
     if(kind==='mcq'&&opts.filter(Boolean).length<2){toast('Add at least two options.','error');return;}
     if(kind==='mcq'&&!opts['ABCD'.indexOf(correct)]){toast('Enter text for the selected correct option.','error');return;}
     const payload={quiz_id:f.get('quiz_id'),question:f.get('question').trim(),question_type:kind,options:kind==='mcq'?opts:[],correct_option:kind==='mcq'?correct:null,marks:Number(f.get('marks')),explanation:f.get('explanation'),marking_guide:kind==='written'?f.get('explanation'):'',difficulty:f.get('difficulty'),created_by:state.user.id};
-    try{const {error}=await state.client.from('quiz_questions').insert(payload);if(error)throw error;e.currentTarget.reset();$('mcqFields').hidden=false;await loadData();toast('Question saved.','success');}
+    try{const {error}=await state.client.from('quiz_questions').insert(payload);if(error)throw error;form.reset();$('mcqFields').hidden=false;await loadData();toast('Question saved.','success');}
     catch(err){toast(errorMessage(err),'error');}
   }
-  async function createAnnouncement(e){e.preventDefault();const f=new FormData(e.currentTarget);try{const {error}=await state.client.from('announcements').insert({title:f.get('title').trim(),body:f.get('body').trim(),is_published:true,created_by:state.user.id});if(error)throw error;e.currentTarget.reset();await loadData();toast('Announcement published.','success');}catch(err){toast(errorMessage(err),'error');}}
-  async function inviteLearner(e){e.preventDefault();const f=new FormData(e.currentTarget),btn=e.currentTarget.querySelector('button[type=submit]');setBusy(btn,true,'Sending invite…');try{const {data:{session}}=await state.client.auth.getSession();const response=await fetch(`${cfg.SUPABASE_URL}/functions/v1/admin-create-user`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`,'apikey':cfg.SUPABASE_ANON_KEY},body:JSON.stringify({email:f.get('email').trim(),full_name:f.get('full_name').trim(),username:f.get('username').trim()})});const result=await response.json();if(!response.ok)throw new Error(result.error||'Could not send invitation.');e.currentTarget.reset();toast('Invitation email sent.','success');}catch(err){toast(errorMessage(err),'error');}finally{setBusy(btn,false);}}
+  async function createAnnouncement(e){e.preventDefault();const form=e.currentTarget,f=new FormData(form);try{const {error}=await state.client.from('announcements').insert({title:f.get('title').trim(),body:f.get('body').trim(),is_published:true,created_by:state.user.id});if(error)throw error;form.reset();await loadData();toast('Announcement published.','success');}catch(err){toast(errorMessage(err),'error');}}
+  async function inviteLearner(e){e.preventDefault();const form=e.currentTarget,f=new FormData(form),btn=form.querySelector('button[type=submit]');setBusy(btn,true,'Sending invite…');try{const {data:{session}}=await state.client.auth.getSession();const response=await fetch(`${cfg.SUPABASE_URL}/functions/v1/admin-create-user`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`,'apikey':cfg.SUPABASE_ANON_KEY},body:JSON.stringify({email:f.get('email').trim(),full_name:f.get('full_name').trim(),username:f.get('username').trim()})});const result=await response.json();if(!response.ok)throw new Error(result.error||'Could not send invitation.');form.reset();toast('Invitation email sent.','success');}catch(err){toast(errorMessage(err),'error');}finally{setBusy(btn,false);}}
   async function loadPendingAnswers(){
     if(!isAdmin())return;
     const {data,error}=await state.client.from('quiz_answers').select('id,answer,question_id,attempt_id,quiz_questions(question,marks)').eq('pending_review',true).order('id').limit(100);
@@ -346,11 +347,12 @@
     if(error){toast(errorMessage(error),'error');return;}toast('Written answer graded.','success');await loadPendingAnswers();await loadResults();
   }
   async function updatePassword(event){
-    event.preventDefault();const f=new FormData(event.currentTarget),password=f.get('password'),confirmPassword=f.get('confirm');
+    event.preventDefault();
+    const form=event.currentTarget;const f=new FormData(event.currentTarget),password=f.get('password'),confirmPassword=f.get('confirm');
     if(password!==confirmPassword){toast('Passwords do not match.','error');return;}
     if(password.length<10){toast('Use at least 10 characters.','error');return;}
     const {error}=await state.client.auth.updateUser({password});if(error){toast(errorMessage(error),'error');return;}
-    $('passwordDialog').close();event.currentTarget.reset();toast('Password updated successfully.','success');
+    $('passwordDialog').close();form.reset();toast('Password updated successfully.','success');
   }
 
   async function deleteCourse(id){if(!confirm('Archive this course? Its lessons and quiz records will remain in the database.'))return;const {error}=await state.client.from('courses').update({is_published:false}).eq('id',id);if(error){toast(errorMessage(error),'error');return;}await loadData();toast('Course unpublished.','success');}
