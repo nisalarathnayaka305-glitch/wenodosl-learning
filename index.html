@@ -73,8 +73,19 @@
       </section>
 
       <section id="page-courses" class="page" hidden>
-        <div class="section-heading"><div><p class="eyebrow">YOUR LIBRARY</p><h2>All courses</h2></div><span id="courseCount" class="muted"></span></div>
-        <div id="allCourses" class="course-grid"></div>
+        <div class="learning-stats">
+          <article class="learning-stat"><span>▦ Subjects</span><strong id="learningStatSubjects">0</strong></article>
+          <article class="learning-stat"><span>▤ Resources</span><strong id="learningStatResources">0</strong></article>
+          <article class="learning-stat"><span>☷ Quiz topics</span><strong id="learningStatQuizzes">0</strong></article>
+        </div>
+        <section class="panel learning-recent"><div class="learning-recent-head"><div><h3>◷ Recent Learning Activity</h3><p class="muted tiny">Your latest learning progress</p></div><button class="btn btn-quiet" id="learningRefreshBtn" type="button">↻ Refresh</button></div><div id="learningRecentList" class="learning-recent-list"></div></section>
+        <section class="panel learning-admin-bar admin-only" id="learningAdminBar" hidden><div><strong>Admin tools</strong><p class="muted tiny">Add lessons, files and quiz links to the Learning Hub.</p></div><button class="btn btn-primary" id="openLearningAddBtn" type="button">＋ Add File / Lesson</button></section>
+        <section class="panel learning-browser">
+          <div class="learning-browser-top"><div id="learningCrumbs" class="learning-crumbs"><button type="button" data-learning-nav="root">⌂ All</button></div>
+            <div class="learning-tools"><input id="learningSearch" type="search" placeholder="Search lessons, folders or files…"><div class="learning-view-toggle"><button type="button" class="active" data-learning-view="cards">▦ Cards</button><button type="button" data-learning-view="tree">☷ Tree</button></div><button class="btn btn-quiet" id="learningReloadBtn" type="button" title="Reload">↻</button></div>
+          </div>
+          <div id="learningContent" class="learning-content"><div class="loading-card">Loading learning materials…</div></div>
+        </section>
       </section>
 
       <section id="page-course" class="page" hidden>
@@ -105,6 +116,23 @@
     </section>
   </div>
 
+  <dialog id="learningAddDialog" class="content-dialog learning-add-dialog">
+    <div class="dialog-head"><div><p class="eyebrow">LEARNING HUB</p><h2>Add content</h2></div><button class="icon-btn" type="button" data-close-learning-add>×</button></div>
+    <div class="learning-add-tabs"><button type="button" class="active" data-add-tab="file">📄 File / Lesson</button><button type="button" data-add-tab="quiz">📝 Quiz link</button></div>
+    <form id="learningAddForm" class="stack">
+      <div class="form-row"><label>Subject / Folder<select name="course_id" id="learningAddCourse" required></select></label><label>Main folder<input name="main_folder" id="learningAddMain" list="learningMainOptions" placeholder="e.g. Basics" required><datalist id="learningMainOptions"></datalist></label></div>
+      <label>Subfolder / Topic<input name="subfolder" id="learningAddSub" placeholder="e.g. Introduction" required></label>
+      <label>Title / File name<input name="title" required maxlength="160" placeholder="Enter a title"></label>
+      <div id="learningAddFileFields" class="stack"><div class="learning-add-subtabs"><button type="button" class="active" data-resource-mode="link">Paste link</button><button type="button" data-resource-mode="upload">Upload file</button></div>
+        <label id="learningLinkField">Document link / iframe<input name="resource_url" type="text" placeholder="Google Drive, SharePoint, YouTube, Vimeo or PDF link"></label>
+        <label id="learningUploadField" hidden>Choose file (max 25 MB)<input name="resource_file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.gif,.webp,.mp4,.webm,.mov"></label>
+        <label>Type<select name="content_type"><option value="auto">Auto-detect</option><option value="video">Video</option><option value="pdf">PDF</option><option value="document">Document</option><option value="slides">Slides</option><option value="link">Link</option><option value="file">File</option></select></label>
+        <label>Description<textarea name="description" rows="2"></textarea></label>
+      </div>
+      <div id="learningAddQuizFields" class="stack" hidden><label>Google Form URL<input name="external_url" type="url" placeholder="https://forms.gle/…"></label></div>
+      <div class="dialog-actions"><button class="btn btn-quiet" type="button" data-close-learning-add>Cancel</button><button class="btn btn-primary" type="submit" id="learningAddSubmit">Add to Learning Hub</button></div>
+    </form>
+  </dialog>
   <dialog id="lessonDialog" class="content-dialog"><div class="dialog-head"><div><p class="eyebrow">LEARNING MATERIAL</p><h2 id="lessonDialogTitle">Lesson</h2></div><button class="icon-btn" data-close-dialog="lessonDialog" aria-label="Close">×</button></div><div id="lessonViewer" class="lesson-viewer"></div><div class="dialog-actions"><button id="bookmarkLessonBtn" class="btn btn-quiet">☆ Save bookmark</button><button id="completeLessonBtn" class="btn btn-primary">Mark as completed</button></div></dialog>
   <dialog id="quizDialog" class="content-dialog quiz-dialog"><div class="dialog-head"><div><p class="eyebrow">QUIZ IN PROGRESS</p><h2 id="quizDialogTitle">Quiz</h2></div><strong id="quizTimer" class="timer">07:00</strong></div><div id="quizQuestions" class="quiz-questions"></div><div class="dialog-actions"><span id="quizProgressText" class="muted"></span><button id="submitQuizBtn" class="btn btn-primary">Submit answers</button></div></dialog>
   <dialog id="resultDialog" class="content-dialog"><div class="dialog-head"><div><p class="eyebrow">ASSESSMENT RESULT</p><h2>Quiz submitted</h2></div><button class="icon-btn" data-close-dialog="resultDialog" aria-label="Close">×</button></div><div id="quizResultBody"></div><div class="dialog-actions"><button class="btn btn-primary" data-close-dialog="resultDialog">Continue learning</button></div></dialog>
