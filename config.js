@@ -1,6 +1,7 @@
-// Paste your Supabase Project URL and anon/public key here.
-// NEVER put the service_role key in this file or in GitHub Pages.
+// Supabase public browser configuration.
+// The publishable/anon key is designed for client-side use with RLS enabled.
+// NEVER put a service_role or secret key in this file.
 window.WENODO_CONFIG = {
-  SUPABASE_URL: 'https://YOUR-PROJECT-REF.supabase.co',
-  SUPABASE_ANON_KEY: 'YOUR_SUPABASE_ANON_PUBLIC_KEY'
+  SUPABASE_URL: 'https://lbyzmeayhwbnmajypwbk.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_2IHK_UkGXH0a9IiKfbeKgQ_5SakL_Qr'
 };
