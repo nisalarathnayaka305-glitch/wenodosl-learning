@@ -1,0 +1,7 @@
+{
+  "name": "wenodosl-learning-hub",
+  "private": true,
+  "type": "module",
+  "scripts": {"check": "node --check assets/app.js && node --check migration/import-learning-data.mjs"},
+  "dependencies": {"@supabase/supabase-js": "^2.49.0", "dotenv": "^16.4.7"}
+}

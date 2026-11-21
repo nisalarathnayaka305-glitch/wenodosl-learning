@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101a35">
+  <meta name="description" content="WenodoSL Learning Hub">
+  <title>WenodoSL Learning Hub</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./assets/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
+  <script defer src="./assets/app.js"></script>
+</head>
+<body>
+  <div id="toastRegion" class="toast-region" aria-live="polite"></div>
+
+  <main id="authScreen" class="auth-shell">
+    <section class="auth-card">
+      <div class="brand-mark">W</div>
+      <p class="eyebrow">WENODOSL WORKSPACE</p>
+      <h1>Learning Hub</h1>
+      <p class="muted">Sign in to continue your learning journey.</p>
+      <form id="loginForm" class="stack">
+        <label>Email address<input id="loginEmail" type="email" autocomplete="username" required placeholder="name@company.com"></label>
+        <label>Password<input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Your password"></label>
+        <button class="btn btn-primary btn-wide" type="submit" id="loginBtn">Sign in</button>
+      </form>
+      <button class="text-btn" id="forgotPasswordBtn" type="button">Forgot password?</button>
+      <p id="authMessage" class="form-message" role="status"></p>
+      <p class="tiny muted">Accounts are provided by your Learning administrator.</p>
+    </section>
+  </main>
+
+  <div id="appShell" class="app-shell" hidden>
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-brand"><div class="brand-mark small-mark">W</div><div><strong>WenodoSL</strong><span>Learning Hub</span></div></div>
+      <nav class="side-nav" aria-label="Main navigation">
+        <button class="nav-item active" data-page="home"><span>⌂</span> Overview</button>
+        <button class="nav-item" data-page="courses"><span>▤</span> My courses</button>
+        <button class="nav-item" data-page="bookmarks"><span>☆</span> Bookmarks</button>
+        <button class="nav-item" data-page="results"><span>▣</span> Quiz results</button>
+        <button class="nav-item" data-page="announcements"><span>◉</span> Announcements <i id="unreadBadge" class="nav-badge" hidden>0</i></button>
+        <button class="nav-item admin-only" data-page="admin" hidden><span>⚙</span> Admin tools</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <button id="themeBtn" class="nav-item"><span>◐</span> Toggle theme</button>
+        <button id="langBtn" class="nav-item"><span>文</span> සිංහල / English</button>
+        <div class="profile-mini"><div id="avatar" class="avatar">W</div><div class="profile-copy"><strong id="profileName">Employee</strong><span id="profileRole">Learner</span></div><button id="logoutBtn" class="icon-btn" title="Sign out" aria-label="Sign out">↪</button></div>
+      </div>
+    </aside>
+
+    <section class="main-area">
+      <header class="topbar">
+        <button id="menuBtn" class="icon-btn mobile-only" aria-label="Open menu">☰</button>
+        <div><p class="eyebrow">YOUR DEVELOPMENT SPACE</p><h1 id="pageTitle">Overview</h1></div>
+        <div class="top-actions"><label class="search-box"><span>⌕</span><input id="globalSearch" type="search" placeholder="Search courses and lessons…"></label><button id="refreshBtn" class="icon-btn" title="Refresh">⟳</button></div>
+      </header>
+
+      <section id="page-home" class="page">
+        <div class="welcome-panel"><div><p class="eyebrow light">KEEP GROWING</p><h2 id="welcomeTitle">Welcome back!</h2><p>Continue where you left off and build your skills.</p></div><div class="welcome-symbol">✦</div></div>
+        <div class="stat-grid">
+          <article class="stat-card"><span>Available courses</span><strong id="statCourses">0</strong><small>Published learning paths</small></article>
+          <article class="stat-card"><span>Lessons completed</span><strong id="statCompleted">0</strong><small>Your learning progress</small></article>
+          <article class="stat-card"><span>Quiz attempts</span><strong id="statAttempts">0</strong><small>Submitted assessments</small></article>
+          <article class="stat-card"><span>Average quiz score</span><strong id="statAverage">—</strong><small>Across completed quizzes</small></article>
+        </div>
+        <div class="section-heading"><div><p class="eyebrow">LEARNING PATHS</p><h2>Continue learning</h2></div><button class="btn btn-quiet" data-go="courses">View all courses →</button></div>
+        <div id="homeCourses" class="course-grid"><div class="loading-card">Loading courses…</div></div>
+        <div class="section-heading compact-heading"><div><p class="eyebrow">LATEST UPDATES</p><h2>Announcements</h2></div></div>
+        <div id="homeAnnouncements" class="announcement-list"></div>
+      </section>
+
+      <section id="page-courses" class="page" hidden>
+        <div class="section-heading"><div><p class="eyebrow">YOUR LIBRARY</p><h2>All courses</h2></div><span id="courseCount" class="muted"></span></div>
+        <div id="allCourses" class="course-grid"></div>
+      </section>
+
+      <section id="page-course" class="page" hidden>
+        <button class="btn btn-quiet back-btn" data-go="courses">← All courses</button>
+        <div id="courseHeader" class="course-hero"></div>
+        <div id="courseLessons" class="lesson-groups"></div>
+        <div id="courseQuizzes" class="quiz-list"></div>
+      </section>
+
+      <section id="page-bookmarks" class="page" hidden><div class="section-heading"><div><p class="eyebrow">SAVED FOR LATER</p><h2>Bookmarks</h2></div></div><div id="bookmarkList" class="lesson-list"></div></section>
+      <section id="page-results" class="page" hidden><div class="section-heading"><div><p class="eyebrow">ASSESSMENT HISTORY</p><h2>Quiz results</h2></div></div><div id="resultSummary" class="stat-grid"></div><div id="resultList" class="table-wrap"></div></section>
+      <section id="page-announcements" class="page" hidden><div class="section-heading"><div><p class="eyebrow">WHAT'S NEW</p><h2>Announcements</h2></div></div><div id="announcementList" class="announcement-list"></div></section>
+
+      <section id="page-admin" class="page" hidden>
+        <div class="section-heading"><div><p class="eyebrow">CONTENT MANAGEMENT</p><h2>Admin tools</h2><p class="muted">Manage courses, lessons, quizzes and learner accounts.</p></div></div>
+        <div class="admin-grid">
+          <form id="courseForm" class="panel stack"><h3>Create course</h3><label>Course title<input name="title" required maxlength="120"></label><label>Description<textarea name="description" rows="3"></textarea></label><div class="form-row"><label>Level<select name="level"><option>Beginner</option><option>Intermediate</option><option>Advanced</option><option>All levels</option></select></label><label>Deadline<input name="deadline" type="date"></label></div><label class="check-label"><input name="published" type="checkbox" checked> Publish course</label><button class="btn btn-primary" type="submit">Create course</button></form>
+          <form id="lessonForm" class="panel stack"><h3>Add lesson / video</h3><label>Course<select name="course_id" id="lessonCourseSelect" required></select></label><div class="form-row"><label>Section<input name="main_folder" placeholder="e.g. Basics"></label><label>Topic<input name="subfolder" placeholder="e.g. Introduction"></label></div><label>Lesson title<input name="title" required maxlength="160"></label><label>Resource URL<input name="resource_url" type="url" placeholder="YouTube / Drive / SharePoint / PDF link" required></label><label>Type<select name="content_type"><option value="video">Video</option><option value="pdf">PDF</option><option value="document">Document</option><option value="slides">Slides</option><option value="link">Link</option></select></label><label>Description<textarea name="description" rows="2"></textarea></label><button class="btn btn-primary" type="submit">Add lesson</button></form>
+          <form id="quizForm" class="panel stack"><h3>Create quiz</h3><label>Course<select name="course_id" id="quizCourseSelect" required></select></label><label>Quiz title<input name="title" required maxlength="140"></label><div class="form-row"><label>Time limit (minutes)<input name="time_limit_seconds" type="number" min="1" max="120" value="7"></label><label>Questions per attempt<input name="questions_per_attempt" type="number" min="1" max="100" value="10"></label></div><label>Maximum attempts (0 = unlimited)<input name="max_attempts" type="number" min="0" value="0"></label><label class="check-label"><input name="published" type="checkbox" checked> Publish quiz</label><button class="btn btn-primary" type="submit">Create quiz</button></form>
+          <form id="questionForm" class="panel stack"><h3>Add quiz question</h3><label>Quiz<select name="quiz_id" id="questionQuizSelect" required></select></label><label>Question<textarea name="question" rows="3" required></textarea></label><label>Question type<select name="question_type" id="questionType"><option value="mcq">Multiple choice</option><option value="written">Written answer</option></select></label><div id="mcqFields" class="stack"><label>Option A<input name="option_a"></label><label>Option B<input name="option_b"></label><label>Option C<input name="option_c"></label><label>Option D<input name="option_d"></label><label>Correct option<select name="correct_option"><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select></label></div><label>Marks<input name="marks" type="number" min="1" max="100" value="1"></label><label>Explanation / marking guide<textarea name="explanation" rows="2"></textarea></label><label>Difficulty<select name="difficulty"><option>Easy</option><option>Medium</option><option>Hard</option></select></label><button class="btn btn-primary" type="submit">Save question</button></form>
+          <form id="announcementForm" class="panel stack"><h3>Publish announcement</h3><label>Title<input name="title" required maxlength="160"></label><label>Message<textarea name="body" rows="3" required></textarea></label><button class="btn btn-primary" type="submit">Publish announcement</button></form>
+          <form id="inviteForm" class="panel stack"><h3>Invite learner</h3><label>Employee email<input name="email" type="email" required></label><label>Full name<input name="full_name" required></label><label>Username<input name="username"></label><p class="tiny muted">An invitation email is sent. The employee sets their own password.</p><button class="btn btn-primary" type="submit">Send invitation</button></form>
+        </div>
+        <div class="panel admin-queue"><h3>Existing courses</h3><div id="adminCourseList" class="simple-list"></div></div>
+        <div class="panel admin-queue"><h3>Written answers awaiting review</h3><div id="pendingAnswers" class="simple-list"></div></div>
+      </section>
+    </section>
+  </div>
+
+  <dialog id="lessonDialog" class="content-dialog"><div class="dialog-head"><div><p class="eyebrow">LEARNING MATERIAL</p><h2 id="lessonDialogTitle">Lesson</h2></div><button class="icon-btn" data-close-dialog="lessonDialog" aria-label="Close">×</button></div><div id="lessonViewer" class="lesson-viewer"></div><div class="dialog-actions"><button id="bookmarkLessonBtn" class="btn btn-quiet">☆ Save bookmark</button><button id="completeLessonBtn" class="btn btn-primary">Mark as completed</button></div></dialog>
+  <dialog id="quizDialog" class="content-dialog quiz-dialog"><div class="dialog-head"><div><p class="eyebrow">QUIZ IN PROGRESS</p><h2 id="quizDialogTitle">Quiz</h2></div><strong id="quizTimer" class="timer">07:00</strong></div><div id="quizQuestions" class="quiz-questions"></div><div class="dialog-actions"><span id="quizProgressText" class="muted"></span><button id="submitQuizBtn" class="btn btn-primary">Submit answers</button></div></dialog>
+  <dialog id="resultDialog" class="content-dialog"><div class="dialog-head"><div><p class="eyebrow">ASSESSMENT RESULT</p><h2>Quiz submitted</h2></div><button class="icon-btn" data-close-dialog="resultDialog" aria-label="Close">×</button></div><div id="quizResultBody"></div><div class="dialog-actions"><button class="btn btn-primary" data-close-dialog="resultDialog">Continue learning</button></div></dialog>
+  <dialog id="passwordDialog" class="content-dialog"><div class="dialog-head"><div><p class="eyebrow">ACCOUNT SECURITY</p><h2>Set a new password</h2></div></div><form id="passwordForm" class="stack"><label>New password<input name="password" type="password" minlength="10" required></label><label>Confirm password<input name="confirm" type="password" minlength="10" required></label><button class="btn btn-primary" type="submit">Update password</button></form></dialog>
+</body>
+</html>
