@@ -6,6 +6,7 @@
     client: null, user: null, profile: null, courses: [], lessons: [], quizzes: [], progress: [], bookmarks: [], announcements: [],
     currentCourse: null, currentLesson: null, activeAttempt: null, answers: {}, timerId: null, deadline: null,
     folderView: localStorage.getItem('wn_lms_folder_view') === 'tree' ? 'tree' : 'cards',
+    learningNav: { courseId:null, main:null, sub:null }, learningView: localStorage.getItem('wn_learning_view') === 'tree' ? 'tree' : 'cards', learningAddTab:'file', learningResourceMode:'link',
     lang: localStorage.getItem('wn_lms_lang') || 'en', theme: localStorage.getItem('wn_lms_theme') || 'light'
   };
 
@@ -56,6 +57,15 @@
     document.querySelectorAll('[data-go]').forEach(btn => btn.addEventListener('click', () => navigate(btn.dataset.go)));
     document.querySelectorAll('[data-close-dialog]').forEach(btn => btn.addEventListener('click', () => $(btn.dataset.closeDialog).close()));
     $('globalSearch').addEventListener('input', debounce(searchAll, 220));
+    $('learningSearch').addEventListener('input', debounce(renderLearningHub, 180));
+    $('learningRefreshBtn').addEventListener('click', () => loadData().then(()=>toast('Learning Hub refreshed.','success')).catch(e=>toast(errorMessage(e),'error')));
+    $('learningReloadBtn').addEventListener('click', () => loadData().then(()=>{state.learningNav={courseId:null,main:null,sub:null};renderLearningHub();toast('Learning Hub refreshed.','success');}).catch(e=>toast(errorMessage(e),'error')));
+    $('openLearningAddBtn').addEventListener('click', openLearningAdd);
+    $('learningAddForm').addEventListener('submit', submitLearningAdd);
+    $('learningAddDialog').querySelectorAll('[data-close-learning-add]').forEach(b=>b.addEventListener('click',()=>$('learningAddDialog').close()));
+    $('learningAddDialog').querySelectorAll('[data-add-tab]').forEach(b=>b.addEventListener('click',()=>setLearningAddTab(b.dataset.addTab)));
+    $('learningAddDialog').querySelectorAll('[data-resource-mode]').forEach(b=>b.addEventListener('click',()=>setLearningResourceMode(b.dataset.resourceMode)));
+    $('page-courses').addEventListener('click', handleLearningHubClick);
     $('completeLessonBtn').addEventListener('click', completeCurrentLesson);
     $('bookmarkLessonBtn').addEventListener('click', toggleCurrentBookmark);
     $('submitQuizBtn').addEventListener('click', submitQuiz);
@@ -142,6 +152,7 @@
     $('welcomeTitle').textContent=`${text[state.lang].welcome} ${state.profile.full_name?.split(' ')[0]||''}`;
     $('homeCourses').innerHTML=state.courses.slice(0,6).map(courseCard).join('')||empty('No courses have been published yet.');
     $('allCourses').innerHTML=state.courses.map(courseCard).join('')||empty('No courses available.'); $('courseCount').textContent=`${state.courses.length} courses`;
+    renderLearningHub();
     $('homeAnnouncements').innerHTML=state.announcements.slice(0,3).map(announcementCard).join('')||empty('No announcements yet.');
     $('announcementList').innerHTML=state.announcements.map(announcementCard).join('')||empty('No announcements yet.');
     $('unreadBadge').hidden=true;
@@ -164,6 +175,7 @@
     $('pageTitle').textContent=text[state.lang][page]||({course:'Course details'}[page])||'Learning Hub';
     $('sidebar').classList.remove('open');
     if(page==='results') loadResults();
+    if(page==='courses') renderLearningHub();
     if(page==='admin'&&isAdmin()) loadPendingAnswers();
   }
   document.addEventListener('click',event=>{
@@ -186,6 +198,107 @@
     $('courseQuizzes').innerHTML=qs.length?`<h2>Quizzes & assessments</h2>${qs.map(q=>`<article class="quiz-card"><div><strong>${esc(q.title)}</strong><small>${q.time_limit_seconds?Math.round(q.time_limit_seconds/60)+' min · ':''}${q.questions_per_attempt} questions per attempt</small></div>${q.external_url?`<a class="btn btn-quiet" href="${esc(q.external_url)}" target="_blank" rel="noopener">Open Google Form ↗</a>`:''}${Number(q.question_count||0)>0?`<button class="btn btn-primary" data-start-quiz="${q.id}">Start quiz</button>`:''}</article>`).join('')}`:'';
     if(courseProgress(id)===100 && list.length){$('courseHeader').insertAdjacentHTML('beforeend',`<button id="certificateBtn" class="btn btn-primary" style="margin-top:14px">Get course certificate</button>`);$('certificateBtn').addEventListener('click',()=>issueCertificate(id));}
     navigate('course');
+  }
+  function handleLearningHubClick(event){
+    const nav=event.target.closest('[data-learning-nav]'); if(nav){const kind=nav.dataset.learningNav;if(kind==='root')state.learningNav={courseId:null,main:null,sub:null};else if(kind==='course')state.learningNav={courseId:nav.dataset.courseId,main:null,sub:null};else if(kind==='main')state.learningNav={courseId:nav.dataset.courseId,main:nav.dataset.main,sub:null};else if(kind==='sub')state.learningNav={courseId:nav.dataset.courseId,main:nav.dataset.main,sub:nav.dataset.sub};renderLearningHub();return;}
+    const view=event.target.closest('[data-learning-view]');if(view){state.learningView=view.dataset.learningView;localStorage.setItem('wn_learning_view',state.learningView);renderLearningHub();return;}
+    const course=event.target.closest('[data-learning-course]');if(course){state.learningNav={courseId:course.dataset.learningCourse,main:null,sub:null};renderLearningHub();return;}
+    const lesson=event.target.closest('[data-open-lesson]');if(lesson){openLesson(lesson.dataset.openLesson);return;}
+    const quiz=event.target.closest('[data-learning-quiz]');if(quiz){const q=state.quizzes.find(x=>x.id===quiz.dataset.learningQuiz);if(q?.external_url)window.open(q.external_url,'_blank','noopener');else if(q)toast('Open this quiz from the course quiz section.','');}
+  }
+  function renderLearningHub(){
+    const q=$('learningSearch')?.value.trim().toLowerCase()||'',nav=state.learningNav;
+    $('learningStatSubjects').textContent=state.courses.length;
+    $('learningStatResources').textContent=state.lessons.length;
+    $('learningStatQuizzes').textContent=state.quizzes.length;
+    const recent=state.progress.slice().sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0)).slice(0,5);
+    $('learningRecentList').innerHTML=recent.length?recent.map(p=>{const l=state.lessons.find(x=>x.id===p.lesson_id);return l?'<div class="learning-recent-item"><span>▤</span><div><strong>'+esc(l.title)+'</strong><small>'+esc(l.main_folder||'Lessons')+' › '+esc(l.subfolder||'General')+'</small></div><small>'+(p.completed?'Completed':'In progress')+'</small></div>':''}).join('')||empty('No learning activity yet.') : empty('No learning activity yet.');
+    document.querySelectorAll('[data-learning-view]').forEach(b=>b.classList.toggle('active',b.dataset.learningView===state.learningView));
+    const crumbs=[{label:'⌂ All',kind:'root'}];
+    if(nav.courseId){const c=state.courses.find(x=>x.id===nav.courseId);crumbs.push({label:c?.title||'Subject',kind:'course',courseId:nav.courseId});}
+    if(nav.main)crumbs.push({label:nav.main,kind:'main',courseId:nav.courseId,main:nav.main});
+    if(nav.sub)crumbs.push({label:nav.sub,kind:'sub',courseId:nav.courseId,main:nav.main,sub:nav.sub});
+    $('learningCrumbs').innerHTML=crumbs.map((x,i)=>i===crumbs.length-1?'<span>'+esc(x.label)+'</span>':'<button type="button" data-learning-nav="'+x.kind+'" '+(x.courseId?'data-course-id="'+x.courseId+'"':'')+(x.main?' data-main="'+esc(x.main)+'"':'')+(x.sub?' data-sub="'+esc(x.sub)+'"':'')+'>'+esc(x.label)+'</button>').join('<span class="crumb-sep">›</span>');
+    let lessons=state.lessons.slice(),courses=state.courses.slice();
+    if(q){const matched=lessons.filter(l=>(l.title+' '+(l.description||'')+' '+(l.main_folder||'')+' '+(l.subfolder||'')).toLowerCase().includes(q));$('learningContent').innerHTML=matched.length?'<div class="learning-material-list">'+matched.map(learningLessonRow).join('')+'</div>':empty('No learning materials match your search.');return;}
+    if(!nav.courseId){
+      $('learningContent').innerHTML=state.learningView==='tree'?renderLearningTree():courses.length?'<div class="learning-folder-grid">'+courses.map(c=>{const count=lessons.filter(l=>l.course_id===c.id).length;return '<button type="button" class="learning-folder-card" data-learning-course="'+c.id+'"><span class="learning-folder-icon">📁</span><strong>'+esc(c.title)+'</strong><small>'+esc(c.level||'Learning subject')+'</small><em>'+count+' resources</em></button>';}).join('')+'</div>':empty('No learning folders yet.');
+      return;
+    }
+    const course=state.courses.find(c=>c.id===nav.courseId);if(!course){$('learningContent').innerHTML=empty('Subject not found.');return;}
+    const rows=lessons.filter(l=>l.course_id===nav.courseId);
+    const groups=new Map();rows.forEach(l=>{const m=l.main_folder||'Lessons',s=l.subfolder||'General';if(!groups.has(m))groups.set(m,new Map());if(!groups.get(m).has(s))groups.get(m).set(s,[]);groups.get(m).get(s).push(l);});
+    if(!nav.main){
+      $('learningContent').innerHTML=state.learningView==='tree'?renderLearningTree(course,groups):'<div class="learning-folder-grid">'+[...groups.entries()].map(([m,subs])=>'<button type="button" class="learning-folder-card subfolder-card" data-learning-nav="main" data-course-id="'+course.id+'" data-main="'+esc(m)+'"><span class="learning-folder-icon">📂</span><strong>'+esc(m)+'</strong><small>Main folder</small><em>'+[...subs.values()].reduce((n,a)=>n+a.length,0)+' resources</em></button>').join('')+'</div>'+(!groups.size?empty('No learning folders in this subject yet.'): '');
+      return;
+    }
+    if(!nav.sub){
+      const subs=groups.get(nav.main);$('learningContent').innerHTML=subs?'<div class="learning-folder-grid">'+[...subs.entries()].map(([s,items])=>'<button type="button" class="learning-folder-card subfolder-card" data-learning-nav="sub" data-course-id="'+course.id+'" data-main="'+esc(nav.main)+'" data-sub="'+esc(s)+'"><span class="learning-folder-icon">📁</span><strong>'+esc(s)+'</strong><small>'+esc(nav.main)+'</small><em>'+items.length+' files</em></button>').join('')+'</div>':empty('No topics in this folder.');return;
+    }
+    const items=groups.get(nav.main)?.get(nav.sub)||[];
+    const quizzes=state.quizzes.filter(x=>x.course_id===nav.courseId&&x.is_published);
+    $('learningContent').innerHTML=(isAdmin()?'<div class="learning-inline-actions"><button class="btn btn-primary" type="button" id="quickAddInFolder">＋ Add content here</button></div>':'')+
+      '<div class="learning-material-list">'+items.map(learningLessonRow).join('')+'</div>'+(!items.length?empty('No files in this folder yet.'): '')+
+      (quizzes.length?'<h3 class="learning-quiz-heading">Quiz forms & assessments</h3>'+quizzes.map(x=>'<div class="learning-quiz-row"><div><strong>'+esc(x.title)+'</strong><small>'+esc(x.questions_per_attempt||0)+' questions</small></div>'+(x.external_url?'<a class="btn btn-primary" href="'+esc(x.external_url)+'" target="_blank" rel="noopener">Take quiz ↗</a>':'<button class="btn btn-quiet" data-learning-quiz="'+x.id+'">Open quiz</button>')+'</div>').join(''):'');
+    const quick=$('quickAddInFolder');if(quick)quick.addEventListener('click',()=>openLearningAdd());
+  }
+  function learningLessonRow(l){
+    const done=state.progress.some(p=>p.lesson_id===l.id&&p.completed),type=(l.content_type||'').toLowerCase();
+    return '<article class="learning-material-row"><span class="learning-file-icon">'+(type==='pdf'?'▧':type==='video'?'▶':type==='slides'?'▤':'↗')+'</span><div class="learning-material-copy"><strong>'+esc(l.title)+'</strong><small>'+esc(l.content_type||'Resource')+(l.description?' · '+esc(l.description):'')+'</small></div>'+(done?'<span class="done-pill">Completed</span>':'')+'<button type="button" class="btn btn-quiet" data-open-lesson="'+l.id+'">Open →</button></article>';
+  }
+  function renderLearningTree(course,groups){
+    const all=course?[...groups.entries()]:state.courses.map(c=>[c.title,new Map([[c.id,state.lessons.filter(l=>l.course_id===c.id)]])]);
+    return '<div class="learning-tree">'+all.map(([main,subs])=>course?'<details open><summary>📂 '+esc(main)+'</summary>'+[...subs.entries()].map(([sub,items])=>'<details class="learning-tree-sub"><summary>📁 '+esc(sub)+' <small>'+items.length+'</small></summary>'+items.map(learningLessonRow).join('')+'</details>').join('')+'</details>':'<details><summary>📁 '+esc(main)+'</summary>'+subs.values().next().value.map(learningLessonRow).join('')+'</details>').join('')+'</div>';
+  }
+  function openLearningAdd(){
+    if(!isAdmin())return;
+    const nav=state.learningNav;
+    $('learningAddCourse').innerHTML=state.courses.map(c=>'<option value="'+c.id+'">'+esc(c.title)+'</option>').join('');
+    if(nav.courseId)$('learningAddCourse').value=nav.courseId;
+    $('learningAddMain').value=nav.main||'';
+    $('learningAddSub').value=nav.sub||'';
+    setLearningAddTab('file');setLearningResourceMode('link');
+    $('learningAddDialog').showModal();
+  }
+  function setLearningAddTab(tab){
+    state.learningAddTab=tab;
+    $('learningAddDialog').querySelectorAll('[data-add-tab]').forEach(b=>b.classList.toggle('active',b.dataset.addTab===tab));
+    $('learningAddFileFields').hidden=tab!=='file';$('learningAddQuizFields').hidden=tab!=='quiz';
+    $('learningAddSubmit').textContent=tab==='file'?'Add to Learning Hub':'Add quiz link';
+  }
+  function setLearningResourceMode(mode){
+    state.learningResourceMode=mode;
+    $('learningAddDialog').querySelectorAll('[data-resource-mode]').forEach(b=>b.classList.toggle('active',b.dataset.resourceMode===mode));
+    $('learningLinkField').hidden=mode!=='link';$('learningUploadField').hidden=mode!=='upload';
+  }
+  async function submitLearningAdd(event){
+    event.preventDefault();const form=event.currentTarget,f=new FormData(form),tab=state.learningAddTab;
+    const btn=$('learningAddSubmit');setBusy(btn,true,'Saving…');
+    try{
+      const courseId=f.get('course_id'),main=String(f.get('main_folder')||'Lessons').trim(),sub=String(f.get('subfolder')||'General').trim(),title=String(f.get('title')||'').trim();
+      if(tab==='quiz'){
+        const url=String(f.get('external_url')||'').trim();if(!url)throw new Error('Enter a Google Form URL.');
+        const {error}=await state.client.from('quizzes').insert({course_id:courseId,title,external_url:url,questions_per_attempt:0,time_limit_seconds:null,max_attempts:0,is_published:true,created_by:state.user.id});
+        if(error)throw error;
+      }else{
+        const file=f.get('resource_file');let url=String(f.get('resource_url')||'').trim(),type=String(f.get('content_type')||'auto');
+        if(state.learningResourceMode==='upload'){
+          if(!file||!file.size)throw new Error('Choose a file to upload.');
+          if(file.size>25*1024*1024)throw new Error('File must be smaller than 25 MB.');
+          const ext=(file.name.split('.').pop()||'').toLowerCase(),mime=file.type||'application/octet-stream';
+          if(type==='auto')type=mime==='application/pdf'||ext==='pdf'?'pdf':mime.startsWith('video/')?'video':['ppt','pptx'].includes(ext)?'slides':['doc','docx','xls','xlsx','txt'].includes(ext)?'document':'file';
+          const safe=file.name.normalize('NFKD').replace(/[^a-zA-Z0-9._-]+/g,'-').slice(-100)||'learning-file';
+          const path=courseId+'/'+Date.now()+'-'+safe;
+          const {error}=await state.client.storage.from('learning-files').upload(path,file,{upsert:false,contentType:mime});if(error)throw error;
+          url='storage://'+path;
+        }else if(!url)throw new Error('Paste a resource link.');
+        if(type==='auto')type=/\.pdf([?#]|$)/i.test(url)?'pdf':/youtu|vimeo|\.mp4|\.webm/i.test(url)?'video':'link';
+        const {error}=await state.client.from('lessons').insert({course_id:courseId,main_folder:main||'Lessons',subfolder:sub||'General',title,resource_url:url,content_type:type,description:f.get('description')||'',is_published:true,created_by:state.user.id});
+        if(error)throw error;
+      }
+      form.reset();$('learningAddDialog').close();await loadData();renderLearningHub();toast(tab==='file'?'Learning material added.':'Quiz link added.','success');
+    }catch(error){toast(errorMessage(error),'error');}
+    finally{setBusy(btn,false);}
   }
   function renderCourseFolders(courseId) {
     const rows=state.lessons.filter(l=>l.course_id===courseId);
