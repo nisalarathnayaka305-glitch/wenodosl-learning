@@ -291,7 +291,8 @@
   async function createCourse(e){e.preventDefault();const f=new FormData(e.currentTarget),payload={title:f.get('title').trim(),description:f.get('description'),level:f.get('level'),deadline:f.get('deadline')||null,is_published:f.get('published')==='on',created_by:state.user.id};try{const {error}=await state.client.from('courses').insert(payload);if(error)throw error;e.currentTarget.reset();await loadData();toast('Course created.','success');}catch(err){toast(errorMessage(err),'error');}}
   async function createLesson(e){
     e.preventDefault();
-    const f=new FormData(e.currentTarget),file=f.get('resource_file'),courseId=f.get('course_id');
+    const form=e.currentTarget;
+    const f=new FormData(form),file=f.get('resource_file'),courseId=f.get('course_id');
     let resourceUrl=String(f.get('resource_url')||'').trim(),contentType=f.get('content_type');
     try{
       if(file&&file.size){
@@ -312,7 +313,7 @@
       if(!resourceUrl)throw new Error('Add a resource URL or choose a file to upload.');
       const payload={course_id:courseId,main_folder:String(f.get('main_folder')||'Lessons').trim()||'Lessons',subfolder:String(f.get('subfolder')||'').trim(),title:f.get('title').trim(),resource_url:resourceUrl,content_type:contentType,description:f.get('description'),is_published:true,created_by:state.user.id};
       const {error}=await state.client.from('lessons').insert(payload);if(error)throw error;
-      e.currentTarget.reset();await loadData();toast('Learning material added.','success');
+      form.reset();await loadData();toast('Learning material added.','success');
     }catch(err){toast(errorMessage(err),'error');}
   }
   async function createQuiz(e){e.preventDefault();const f=new FormData(e.currentTarget),payload={course_id:f.get('course_id'),title:f.get('title').trim(),time_limit_seconds:Number(f.get('time_limit_seconds'))*60,questions_per_attempt:Number(f.get('questions_per_attempt')),max_attempts:Number(f.get('max_attempts')),is_published:f.get('published')==='on',created_by:state.user.id};try{const {error}=await state.client.from('quizzes').insert(payload);if(error)throw error;e.currentTarget.reset();await loadData();toast('Quiz created. Add questions below.','success');}catch(err){toast(errorMessage(err),'error');}}
