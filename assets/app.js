@@ -151,7 +151,6 @@
     $('statCourses').textContent=state.courses.length; $('statCompleted').textContent=completed;
     $('welcomeTitle').textContent=`${text[state.lang].welcome} ${state.profile.full_name?.split(' ')[0]||''}`;
     $('homeCourses').innerHTML=state.courses.slice(0,6).map(courseCard).join('')||empty('No courses have been published yet.');
-    $('allCourses').innerHTML=state.courses.map(courseCard).join('')||empty('No courses available.'); $('courseCount').textContent=`${state.courses.length} courses`;
     renderLearningHub();
     $('homeAnnouncements').innerHTML=state.announcements.slice(0,3).map(announcementCard).join('')||empty('No announcements yet.');
     $('announcementList').innerHTML=state.announcements.map(announcementCard).join('')||empty('No announcements yet.');
