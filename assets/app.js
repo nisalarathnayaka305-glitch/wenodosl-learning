@@ -5,6 +5,7 @@
   const state = {
     client: null, user: null, profile: null, courses: [], lessons: [], quizzes: [], progress: [], bookmarks: [], announcements: [],
     currentCourse: null, currentLesson: null, activeAttempt: null, answers: {}, timerId: null, deadline: null,
+    folderView: localStorage.getItem('wn_lms_folder_view') === 'tree' ? 'tree' : 'cards',
     lang: localStorage.getItem('wn_lms_lang') || 'en', theme: localStorage.getItem('wn_lms_theme') || 'light'
   };
 
@@ -166,6 +167,7 @@
     if(page==='admin'&&isAdmin()) loadPendingAnswers();
   }
   document.addEventListener('click',event=>{
+    const viewBtn=event.target.closest('[data-folder-view]'); if(viewBtn){state.folderView=viewBtn.dataset.folderView;localStorage.setItem('wn_lms_folder_view',state.folderView);if(state.currentCourse)openCourse(state.currentCourse.id);}
     const courseBtn=event.target.closest('[data-open-course]'); if(courseBtn)openCourse(courseBtn.dataset.openCourse);
     const lessonBtn=event.target.closest('[data-open-lesson]'); if(lessonBtn)openLesson(lessonBtn.dataset.openLesson);
     const quizBtn=event.target.closest('[data-start-quiz]'); if(quizBtn)beginQuiz(quizBtn.dataset.startQuiz);
@@ -177,14 +179,31 @@
   function openCourse(id) {
     const course=state.courses.find(c=>c.id===id); if(!course)return; state.currentCourse=course;
     $('courseHeader').innerHTML=`<p class="eyebrow">${esc(course.level||'LEARNING PATH')}</p><h2>${esc(course.title)}</h2><p>${esc(course.description||'')}</p><div class="progress-track"><div class="progress-fill" style="width:${courseProgress(id)}%"></div></div><small>${courseProgress(id)}% completed${course.deadline?` · Deadline ${fmtDate(course.deadline)}`:''}</small>`;
-    const list=state.lessons.filter(l=>l.course_id===id); const groups={};
-    list.forEach(l=>{const key=`${l.main_folder||'Lessons'}||${l.subfolder||''}`;(groups[key] ||= []).push(l);});
-    $('courseLessons').innerHTML=Object.entries(groups).map(([key,items])=>{const [section,topic]=key.split('||');return `<section class="lesson-group"><h3>${esc(section)}${topic?` / ${esc(topic)}`:''}</h3><div class="lesson-list">${items.map(lessonRow).join('')}</div></section>`;}).join('')||empty('No lessons in this course yet.');
+    const list=state.lessons.filter(l=>l.course_id===id);
+    document.querySelectorAll('[data-folder-view]').forEach(btn=>btn.classList.toggle('active',btn.dataset.folderView===state.folderView));
+    $('courseLessons').innerHTML=renderCourseFolders(id)||empty('No lessons in this course yet.');
     const qs=state.quizzes.filter(q=>q.course_id===id&&q.is_published);
     $('courseQuizzes').innerHTML=qs.length?`<h2>Quizzes & assessments</h2>${qs.map(q=>`<article class="quiz-card"><div><strong>${esc(q.title)}</strong><small>${q.time_limit_seconds?Math.round(q.time_limit_seconds/60)+' min · ':''}${q.questions_per_attempt} questions per attempt</small></div>${q.external_url?`<a class="btn btn-quiet" href="${esc(q.external_url)}" target="_blank" rel="noopener">Open Google Form ↗</a>`:''}${Number(q.question_count||0)>0?`<button class="btn btn-primary" data-start-quiz="${q.id}">Start quiz</button>`:''}</article>`).join('')}`:'';
     if(courseProgress(id)===100 && list.length){$('courseHeader').insertAdjacentHTML('beforeend',`<button id="certificateBtn" class="btn btn-primary" style="margin-top:14px">Get course certificate</button>`);$('certificateBtn').addEventListener('click',()=>issueCertificate(id));}
     navigate('course');
   }
+  function renderCourseFolders(courseId) {
+    const rows=state.lessons.filter(l=>l.course_id===courseId);
+    if(!rows.length)return '';
+    const tree=new Map();
+    rows.forEach(lesson=>{
+      const main=lesson.main_folder||'Lessons', sub=lesson.subfolder||'General';
+      if(!tree.has(main))tree.set(main,new Map());
+      const topics=tree.get(main);
+      if(!topics.has(sub))topics.set(sub,[]);
+      topics.get(sub).push(lesson);
+    });
+    if(state.folderView==='tree'){
+      return [...tree.entries()].map(([main,topics])=>`<details class="folder-tree-main" open><summary><span>📁 ${esc(main)}</span><small>${[...topics.values()].reduce((n,a)=>n+a.length,0)} items</small></summary>${[...topics.entries()].map(([sub,items])=>`<details class="folder-tree-sub" open><summary><span>📂 ${esc(sub)}</span><small>${items.length} items</small></summary><div class="lesson-list">${items.map(lessonRow).join('')}</div></details>`).join('')}</details>`).join('');
+    }
+    return [...tree.entries()].map(([main,topics])=>`<section class="folder-card"><div class="folder-card-head"><span class="folder-symbol">📁</span><div><h3>${esc(main)}</h3><small>${[...topics.values()].reduce((n,a)=>n+a.length,0)} learning items</small></div></div><div class="folder-topic-grid">${[...topics.entries()].map(([sub,items])=>`<section class="folder-topic"><h4>📂 ${esc(sub)}</h4><div class="lesson-list">${items.map(lessonRow).join('')}</div></section>`).join('')}</div></section>`).join('');
+  }
+
   function lessonRow(lesson) {
     const done=state.progress.some(p=>p.lesson_id===lesson.id&&p.completed),bookmarked=state.bookmarks.some(b=>b.lesson_id===lesson.id);
     return `<div class="lesson-row"><div class="lesson-icon">${lesson.content_type==='video'?'▶':lesson.content_type==='pdf'?'▧':'↗'}</div><div class="lesson-copy"><strong>${esc(lesson.title)}</strong><small>${esc(lesson.content_type||'Resource')}${lesson.duration_seconds?' · '+Math.round(lesson.duration_seconds/60)+' min':''}</small></div>${done?'<span class="done-pill">Completed</span>':''}<div class="lesson-actions"><button title="Bookmark" data-bookmark="${lesson.id}">${bookmarked?'★':'☆'}</button><button class="btn btn-quiet" data-open-lesson="${lesson.id}">Open →</button></div></div>`;
@@ -211,6 +230,7 @@
       if(u.hostname==='youtu.be')return `https://www.youtube-nocookie.com/embed/${u.pathname.slice(1)}`;
       if(u.hostname.includes('drive.google.com')){const m=u.pathname.match(/\/d\/([^/]+)/);if(m)return `https://drive.google.com/file/d/${m[1]}/preview`;}
       if(u.hostname.includes('vimeo.com')){const id=u.pathname.split('/').filter(Boolean).pop();if(id)return `https://player.vimeo.com/video/${id}`;}
+      if(type==='pdf'||/\\.pdf(\\?|$)/i.test(url))return url;
       if(type==='video'&&/\.(mp4|webm)(\?|$)/i.test(url))return url;
     }catch(e){} return '';
   }
@@ -269,7 +289,32 @@
   function fillAdminSelects(){if(!isAdmin())return;const opts=state.courses.map(c=>`<option value="${c.id}">${esc(c.title)}</option>`).join('');$('lessonCourseSelect').innerHTML=opts;$('quizCourseSelect').innerHTML=opts;const qopts=state.quizzes.map(q=>`<option value="${q.id}">${esc(q.title)}</option>`).join('');$('questionQuizSelect').innerHTML=qopts;}
   function renderAdminLists(){if(!isAdmin())return;$('adminCourseList').innerHTML=state.courses.map(c=>`<div class="simple-list-row"><span>${esc(c.title)}</span><button class="text-btn" data-delete-course="${c.id}">Archive</button></div>`).join('')||empty('No courses yet.');}
   async function createCourse(e){e.preventDefault();const f=new FormData(e.currentTarget),payload={title:f.get('title').trim(),description:f.get('description'),level:f.get('level'),deadline:f.get('deadline')||null,is_published:f.get('published')==='on',created_by:state.user.id};try{const {error}=await state.client.from('courses').insert(payload);if(error)throw error;e.currentTarget.reset();await loadData();toast('Course created.','success');}catch(err){toast(errorMessage(err),'error');}}
-  async function createLesson(e){e.preventDefault();const f=new FormData(e.currentTarget),payload={course_id:f.get('course_id'),main_folder:f.get('main_folder'),subfolder:f.get('subfolder'),title:f.get('title').trim(),resource_url:f.get('resource_url').trim(),content_type:f.get('content_type'),description:f.get('description'),is_published:true,created_by:state.user.id};try{const {error}=await state.client.from('lessons').insert(payload);if(error)throw error;e.currentTarget.reset();await loadData();toast('Lesson added.','success');}catch(err){toast(errorMessage(err),'error');}}
+  async function createLesson(e){
+    e.preventDefault();
+    const f=new FormData(e.currentTarget),file=f.get('resource_file'),courseId=f.get('course_id');
+    let resourceUrl=String(f.get('resource_url')||'').trim(),contentType=f.get('content_type');
+    try{
+      if(file&&file.size){
+        if(file.size>25*1024*1024)throw new Error('Please upload a file smaller than 25 MB.');
+        const ext=(file.name.split('.').pop()||'').toLowerCase();
+        const mime=file.type||'application/octet-stream';
+        if(mime==='application/pdf'||ext==='pdf')contentType='pdf';
+        else if(mime.startsWith('video/')||['mp4','webm','mov'].includes(ext))contentType='video';
+        else if(['ppt','pptx'].includes(ext))contentType='slides';
+        else if(['doc','docx','xls','xlsx','txt'].includes(ext))contentType='document';
+        else if(['png','jpg','jpeg','gif','webp'].includes(ext))contentType='file';
+        const safeName=file.name.normalize('NFKD').replace(/[^a-zA-Z0-9._-]+/g,'-').replace(/^-+|-+$/g,'').slice(-100)||'learning-file';
+        const path=`${courseId}/${Date.now()}-${safeName}`;
+        const {error:uploadError}=await state.client.storage.from('learning-files').upload(path,file,{upsert:false,contentType:mime});
+        if(uploadError)throw uploadError;
+        resourceUrl='storage://'+path;
+      }
+      if(!resourceUrl)throw new Error('Add a resource URL or choose a file to upload.');
+      const payload={course_id:courseId,main_folder:String(f.get('main_folder')||'Lessons').trim()||'Lessons',subfolder:String(f.get('subfolder')||'').trim(),title:f.get('title').trim(),resource_url:resourceUrl,content_type:contentType,description:f.get('description'),is_published:true,created_by:state.user.id};
+      const {error}=await state.client.from('lessons').insert(payload);if(error)throw error;
+      e.currentTarget.reset();await loadData();toast('Learning material added.','success');
+    }catch(err){toast(errorMessage(err),'error');}
+  }
   async function createQuiz(e){e.preventDefault();const f=new FormData(e.currentTarget),payload={course_id:f.get('course_id'),title:f.get('title').trim(),time_limit_seconds:Number(f.get('time_limit_seconds'))*60,questions_per_attempt:Number(f.get('questions_per_attempt')),max_attempts:Number(f.get('max_attempts')),is_published:f.get('published')==='on',created_by:state.user.id};try{const {error}=await state.client.from('quizzes').insert(payload);if(error)throw error;e.currentTarget.reset();await loadData();toast('Quiz created. Add questions below.','success');}catch(err){toast(errorMessage(err),'error');}}
   async function createQuestion(e){
     e.preventDefault();
