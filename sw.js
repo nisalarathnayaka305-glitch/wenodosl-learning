@@ -1,5 +1,5 @@
-const CACHE = 'wenodo-learning-v2';
-const CORE = ['./', './index.html', './config.js?v=20261121-2', './assets/styles.css', './assets/app.js', './manifest.webmanifest', './assets/icon.svg'];
+const CACHE = 'wenodo-learning-v3';
+const CORE = ['./', './index.html', './config.js?v=20261121-2', './assets/styles.css', './assets/app.js?v=20261121-loginfix1', './manifest.webmanifest', './assets/icon.svg'];
 self.addEventListener('install', event => event.waitUntil((async () => {
   const cache = await caches.open(CACHE);
   await cache.addAll(CORE);
